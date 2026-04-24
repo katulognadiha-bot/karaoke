@@ -157,6 +157,8 @@ function HostView() {
     updateDB(nq);
   };
 
+  const remoteUrl = `${window.location.origin}/remote?id=${sessionId}`;
+
   // Clean up Audio on unmount
   useEffect(() => {
     return () => {

@@ -19,6 +19,27 @@ function HostView() {
 
   useEffect(() => {
     if (!supabase) return;
+
+    // Initialize session in DB
+    const initSession = async () => {
+      const { data, error } = await supabase
+        .from('queues')
+        .select('*')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (!data) {
+        await supabase.from('queues').insert([
+          { session_id: sessionId, items: [], current_video: null }
+        ]);
+      } else {
+        setQueue(data.items || []);
+        setCurrentVideo(data.current_video);
+      }
+    };
+
+    initSession();
+
     const channel = supabase.channel(`queue:${sessionId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queues', filter: `session_id=eq.${sessionId}` }, 
         payload => {
@@ -28,13 +49,21 @@ function HostView() {
           }
       }).subscribe();
     return () => supabase.removeChannel(channel);
-  }, [sessionId, currentVideo]);
+  }, [sessionId]);
+
+  const updateDB = async (nq, current = currentVideo) => {
+    if (!supabase) return;
+    await supabase.from('queues').update({ items: nq, current_video: current }).eq('session_id', sessionId);
+  };
 
   const handleSelectSong = (song, action) => {
     if (action === 'play') {
       setCurrentVideo(song);
+      updateDB(queue, song);
     } else {
-      setQueue([...queue, { ...song, queueId: Date.now() }]);
+      const nq = [...queue, { ...song, queueId: Date.now() }];
+      setQueue(nq);
+      updateDB(nq);
     }
   };
 
@@ -44,13 +73,17 @@ function HostView() {
       const nq = queue.slice(1);
       setCurrentVideo(n);
       setQueue(nq);
+      updateDB(nq, n);
     } else {
       setCurrentVideo(null);
+      updateDB([], null);
     }
   };
 
   const handleRemove = (id) => {
-    setQueue(queue.filter(item => item.queueId !== id));
+    const nq = queue.filter(item => item.queueId !== id);
+    setQueue(nq);
+    updateDB(nq);
   };
 
   const remoteUrl = `${window.location.origin}/remote?id=${sessionId}`;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart, Play, Pause, SkipForward } from 'lucide-react';
+import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart, Play, Pause, SkipForward, Maximize } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import Player from '../components/Player';
 import Search from '../components/Search';
@@ -175,6 +175,13 @@ function HostView() {
                     border: '1px solid rgba(255,255,255,0.1)'
                   }}
                 >
+                   <button 
+                     onClick={() => document.documentElement.requestFullscreen()}
+                     style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                     title="Fullscreen"
+                   >
+                      <Maximize size={18} />
+                   </button>
                    <button 
                      onClick={() => setIsPlaying(!isPlaying)}
                      style={{ background: 'var(--accent-blue)', color: 'white', border: 'none', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 20px rgba(33,150,243,0.3)' }}

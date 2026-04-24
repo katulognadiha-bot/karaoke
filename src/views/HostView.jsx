@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart } from 'lucide-react';
+import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart, Play, Pause, SkipForward } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import Player from '../components/Player';
 import Search from '../components/Search';
@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 function HostView() {
   const [activeTab, setActiveTab] = useState('search');
   const [currentVideo, setCurrentVideo] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [queue, setQueue] = useState([]);
   const [sessionId] = useState(() => {
     const saved = localStorage.getItem('vocalize_session_id') || Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -144,9 +145,51 @@ function HostView() {
         {/* Stage */}
         <section className="ktv-stage" style={{ padding: '24px', gap: '24px' }}>
           {/* Main Video Area */}
-          <div style={{ flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', background: '#000', border: '1px solid var(--glass-border)' }}>
+          <div 
+            style={{ flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', background: '#000', border: '1px solid var(--glass-border)' }}
+            onMouseEnter={() => document.getElementById('player-controls').style.opacity = '1'}
+            onMouseLeave={() => document.getElementById('player-controls').style.opacity = '0'}
+          >
             {currentVideo ? (
-              <Player videoId={currentVideo.id} onEnded={handleSongEnded} />
+              <div style={{ width: '100%', height: '100%' }}>
+                <Player videoId={currentVideo.id} onEnded={handleSongEnded} isPlaying={isPlaying} />
+                
+                {/* Floating Controls Overlay */}
+                <div 
+                  id="player-controls"
+                  style={{ 
+                    position: 'absolute', 
+                    bottom: '20px', 
+                    left: '50%', 
+                    transform: 'translateX(-50%)', 
+                    zIndex: 100, 
+                    opacity: 0, 
+                    transition: 'all 0.3s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '8px 24px',
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '40px',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                  }}
+                >
+                   <button 
+                     onClick={() => setIsPlaying(!isPlaying)}
+                     style={{ background: 'var(--accent-blue)', color: 'white', border: 'none', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 20px rgba(33,150,243,0.3)' }}
+                   >
+                      {isPlaying ? <Pause size={20} fill="white" /> : <Play size={20} fill="white" style={{ marginLeft: '2px' }} />}
+                   </button>
+                   <button 
+                     onClick={handleSongEnded}
+                     style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                     title="Skip Song"
+                   >
+                      <SkipForward size={18} fill="white" />
+                   </button>
+                </div>
+              </div>
             ) : (
               /* Idle Video Stage Placeholders */
               <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, #0c0c0c, #101014)' }}>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-const Player = ({ videoId, onEnded, onReady }) => {
+const Player = ({ videoId, onEnded, onReady, isPlaying }) => {
   const playerRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -34,6 +34,16 @@ const Player = ({ videoId, onEnded, onReady }) => {
     }
   }, [videoId]);
 
+  useEffect(() => {
+    if (playerRef.current && playerRef.current.getPlayerState) {
+      if (isPlaying) {
+        playerRef.current.playVideo();
+      } else {
+        playerRef.current.pauseVideo();
+      }
+    }
+  }, [isPlaying]);
+
   const initPlayer = () => {
     if (!containerRef.current) return;
     
@@ -47,10 +57,13 @@ const Player = ({ videoId, onEnded, onReady }) => {
         modestbranding: 1,
         rel: 0,
         showinfo: 0,
+        disablekb: 1,
+        iv_load_policy: 3
       },
       events: {
         onReady: (event) => {
           onReady && onReady(event.target);
+          if (isPlaying) event.target.playVideo();
         },
         onStateChange: (event) => {
           if (event.data === window.YT.PlayerState.ENDED) {

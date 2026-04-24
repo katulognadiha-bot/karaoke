@@ -17,6 +17,8 @@ function HostView() {
     return saved;
   });
 
+  const [notifications, setNotifications] = useState([]);
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -43,13 +45,23 @@ function HostView() {
     const channel = supabase.channel(`queue:${sessionId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queues', filter: `session_id=eq.${sessionId}` }, 
         payload => {
-          setQueue(payload.new.items || []);
+          const newQueue = payload.new.items || [];
+          // If queue increased, show notification
+          if (newQueue.length > queue.length) {
+            const addedSong = newQueue[newQueue.length - 1];
+            const id = Date.now();
+            setNotifications(prev => [...prev, { id, title: addedSong.title }]);
+            setTimeout(() => {
+              setNotifications(prev => prev.filter(n => n.id !== id));
+            }, 3000);
+          }
+          setQueue(newQueue);
           if (payload.new.current_video && (!currentVideo || payload.new.current_video.id !== currentVideo.id)) {
             setCurrentVideo(payload.new.current_video);
           }
       }).subscribe();
     return () => supabase.removeChannel(channel);
-  }, [sessionId]);
+  }, [sessionId, queue.length]);
 
   const updateDB = async (nq, current = currentVideo) => {
     if (!supabase) return;
@@ -64,6 +76,13 @@ function HostView() {
       const nq = [...queue, { ...song, queueId: Date.now() }];
       setQueue(nq);
       updateDB(nq);
+      
+      // Local notification
+      const id = Date.now();
+      setNotifications(prev => [...prev, { id, title: song.title }]);
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }, 3000);
     }
   };
 
@@ -123,7 +142,7 @@ function HostView() {
       {/* Workspace */}
       <main className="ktv-main">
         {/* Stage */}
-        <section className="ktv-stage" style={{ padding: '24px', gap: '20px' }}>
+        <section className="ktv-stage" style={{ padding: '24px', gap: '24px' }}>
           {/* Main Video Area */}
           <div style={{ flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', background: '#000', border: '1px solid var(--glass-border)' }}>
             {currentVideo ? (
@@ -140,6 +159,28 @@ function HostView() {
             
             <div style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.4)', padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', zIndex: 10 }}>
                LIVE 1080P
+            </div>
+
+            {/* Notifications Overlay */}
+            <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 100 }}>
+              <AnimatePresence>
+                {notifications.map(n => (
+                  <motion.div
+                    key={n.id}
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 20, opacity: 0 }}
+                    className="glass-panel glow-blue"
+                    style={{ padding: '12px 20px', background: 'rgba(33,150,243,0.9)', color: 'white', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}
+                  >
+                    <div style={{ background: 'white', padding: '4px', borderRadius: '50%' }}><Music size={12} color="#2196F3" /></div>
+                    <div>
+                      <div style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '1px' }}>New Song Reserved</div>
+                      <div style={{ fontSize: '12px', fontWeight: 800, whiteSpace: 'nowrap', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} dangerouslySetInnerHTML={{ __html: n.title }} />
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -166,20 +207,6 @@ function HostView() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Status Bar */}
-          <div style={{ height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', background: 'rgba(255,255,255,0.01)', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-             <div style={{ display: 'flex', gap: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', opacity: 0.5 }}>
-                   <div style={{ width: '6px', height: '6px', background: '#4CAF50', borderRadius: '50%' }}></div>
-                   Engine Online
-                </div>
-                <div style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', opacity: 0.5 }}>Latency: <span style={{ color: 'var(--accent-blue)' }}>12ms</span></div>
-             </div>
-             <div style={{ fontSize: '11px', fontWeight: 600, fontStyle: 'italic', opacity: 0.3 }}>
-                SYSTEM STANDBY / READY
-             </div>
-          </div>
         </section>
 
         {/* Sidebar */}

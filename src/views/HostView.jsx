@@ -20,13 +20,32 @@ function HostView() {
   });
 
   // Scoring & Audio States
-  const [isScoringEnabled, setIsScoringEnabled] = useState(true);
+  const [isScoringEnabled, setIsScoringEnabled] = useState(false);
   const [micIntensity, setMicIntensity] = useState(0);
   const [currentScore, setCurrentScore] = useState(0);
   const [finalScore, setFinalScore] = useState(null);
   const [showFinalScore, setShowFinalScore] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
   
+  const startMicManual = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      audioContextRef.current = audioContext;
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      setIsMicActive(true);
+      setIsScoringEnabled(true);
+    } catch (err) {
+      console.error("Mic access denied:", err);
+      alert("Please allow mic access to use the scoring system.");
+    }
+  };
+
   const stageRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
@@ -129,6 +148,7 @@ function HostView() {
       updateDB([], null);
     }
     setCurrentScore(0);
+    setIsPlaying(true);
   };
 
   const handleRemove = (id) => {
@@ -137,40 +157,14 @@ function HostView() {
     updateDB(nq);
   };
 
-  // Initialize Audio Analyzer
+  // Clean up Audio on unmount
   useEffect(() => {
-    if (!isScoringEnabled) return;
-
-    const startMic = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micStreamRef.current = stream;
-        
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioContextRef.current = audioContext;
-        
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-        
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(analyser);
-        
-        setIsMicActive(true);
-      } catch (err) {
-        console.error("Mic access denied:", err);
-        setIsMicActive(false);
-      }
-    };
-
-    startMic();
-
     return () => {
       if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
       if (audioContextRef.current) audioContextRef.current.close();
       cancelAnimationFrame(animationRef.current);
     };
-  }, [isScoringEnabled]);
+  }, []);
 
   // Scoring Logic Loop
   useEffect(() => {
@@ -240,7 +234,8 @@ function HostView() {
             <span style={{ fontSize: '16px', fontWeight: 900, letterSpacing: '2px', color: 'var(--accent-blue)' }}>{sessionId}</span>
           </div>
 
-          <div 
+          <button 
+            onClick={!isMicActive ? startMicManual : null}
             style={{ 
               background: 'rgba(255,255,255,0.03)', 
               border: '1px solid var(--glass-border)', 
@@ -250,14 +245,16 @@ function HostView() {
               alignItems: 'center', 
               gap: '10px',
               borderColor: isMicActive ? 'var(--accent-blue)' : 'var(--glass-border)',
-              opacity: isScoringEnabled ? 1 : 0.5
+              opacity: isScoringEnabled ? 1 : 0.5,
+              cursor: isMicActive ? 'default' : 'pointer'
             }}
+            title={isMicActive ? "Scoring is Active" : "Click to Enable Scoring"}
           >
             {isMicActive ? <Mic2 size={14} color="var(--accent-blue)" className="pulse" /> : <MicOff size={14} opacity={0.5} />}
-            <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
-               {isMicActive ? 'Mic Active' : 'Mic Off'}
+            <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'white' }}>
+               {isMicActive ? 'Mic Active' : 'Enable Scoring'}
             </span>
-          </div>
+          </button>
 
           <div style={{ display: 'flex', gap: '4px' }}>
             <button className="btn-icon"><QrCode size={18} /></button>

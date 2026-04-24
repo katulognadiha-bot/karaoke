@@ -54,6 +54,20 @@ function HostView() {
   const pointsRef = useRef(0);
   const frameCountRef = useRef(0);
 
+  // Sound Effects Map
+  const sounds = {
+    applause: 'https://assets.mixkit.co/active_storage/sfx/2836/2836-preview.mp3',
+    airhorn: 'https://assets.mixkit.co/active_storage/sfx/2744/2744-preview.mp3',
+    cheer: 'https://assets.mixkit.co/active_storage/sfx/2841/2841-preview.mp3',
+    fail: 'https://assets.mixkit.co/active_storage/sfx/2843/2843-preview.mp3'
+  };
+
+  const playSound = (type) => {
+    const audio = new Audio(sounds[type]);
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("Sound blocked by browser:", e));
+  };
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -94,7 +108,12 @@ function HostView() {
           if (payload.new.current_video && (!currentVideo || payload.new.current_video.id !== currentVideo.id)) {
             setCurrentVideo(payload.new.current_video);
           }
-      }).subscribe();
+      })
+      .on('broadcast', { event: 'sound_effect' }, (payload) => {
+        playSound(payload.payload.type);
+      })
+      .subscribe();
+      
     return () => supabase.removeChannel(channel);
   }, [sessionId, queue.length]);
 
@@ -359,12 +378,44 @@ function HostView() {
                 )}
               </div>
             ) : (
-              /* Idle Video Stage Placeholders */
-              <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, #0c0c0c, #101014)' }}>
-                <div style={{ opacity: 0.1, marginBottom: '24px' }}>
-                  <Music size={100} />
+              /* Cinematic Idle Background */
+              <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 5, -5, 0],
+                    background: [
+                      'radial-gradient(circle, rgba(33,150,243,0.15) 0%, transparent 70%)',
+                      'radial-gradient(circle, rgba(0,210,255,0.15) 0%, transparent 70%)',
+                      'radial-gradient(circle, rgba(33,150,243,0.15) 0%, transparent 70%)'
+                    ]
+                  }}
+                  transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+                />
+                
+                {/* Floating Particles (CSS Only) */}
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.3, zIndex: 1 }}>
+                   <div className="particles-overlay" />
                 </div>
-                <h2 style={{ fontSize: '24px', fontWeight: 900, opacity: 0.2, textTransform: 'uppercase', letterSpacing: '8px' }}>Studio Ready</h2>
+
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}
+                >
+                  <motion.div 
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}
+                  >
+                    <div className="glass-panel glow-blue" style={{ padding: '24px', borderRadius: '50%', background: 'rgba(33,150,243,0.1)', border: '1px solid var(--accent-blue)' }}>
+                       <Mic2 size={60} color="var(--accent-blue)" />
+                    </div>
+                  </motion.div>
+                  <h1 style={{ fontSize: '48px', fontWeight: 900, letterSpacing: '12px', color: 'white', textShadow: '0 0 30px rgba(33,150,243,0.5)', margin: 0 }}>VOCALIZE</h1>
+                  <p style={{ fontSize: '12px', fontWeight: 900, color: 'var(--accent-blue)', letterSpacing: '6px', marginTop: '12px', textTransform: 'uppercase', opacity: 0.8 }}>The Stage is Yours</p>
+                </motion.div>
               </div>
             )}
             

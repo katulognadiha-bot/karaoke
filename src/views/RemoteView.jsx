@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic2, Search as SearchIcon, ListVideo, Music, ChevronLeft, Wifi, Terminal, LayoutGrid } from 'lucide-react';
+import { Mic2, Search as SearchIcon, ListVideo, Music, ChevronLeft, Wifi, Terminal, LayoutGrid, Speaker } from 'lucide-react';
 import Search from '../components/Search';
 import Queue from '../components/Queue';
 import { supabase } from '../lib/supabase';
@@ -12,6 +12,21 @@ function RemoteView() {
   const [activeTab, setActiveTab] = useState('search');
   const [queue, setQueue] = useState([]);
   const [error, setError] = useState(null);
+
+  // SFX Broadcast Channel
+  const sendSFX = async (type) => {
+    if (!supabase || !sessionId) return;
+    const channel = supabase.channel(`queue:${sessionId}`);
+    await channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.send({
+          type: 'broadcast',
+          event: 'sound_effect',
+          payload: { type },
+        });
+      }
+    });
+  };
 
   useEffect(() => {
     if (!supabase || !sessionId) return;
@@ -31,10 +46,6 @@ function RemoteView() {
     const nq = [...queue, { ...song, queueId: Date.now() }];
     setQueue(nq);
     updateDB(nq);
-    if (action === 'play') {
-       // In a real app, this would tell the host to skip/play immediately
-       // For now, we'll just add to queue
-    }
   };
 
   const handleRemove = (qid) => {
@@ -84,6 +95,39 @@ function RemoteView() {
           >
             {activeTab === 'search' && <Search onSelect={handleSelectSong} />}
             {activeTab === 'reserved' && <Queue items={queue} onRemove={handleRemove} onSkip={() => {}} />}
+            {activeTab === 'sfx' && (
+              <div style={{ padding: '10px' }}>
+                <h3 style={{ fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.3, marginBottom: '24px' }}>Party Sound Board</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                   {[
+                     { id: 'applause', label: 'Applause', icon: '👏', color: '#4ade80' },
+                     { id: 'airhorn', label: 'Airhorn', icon: '📢', color: '#fb7185' },
+                     { id: 'cheer', label: 'Cheers', icon: '🎉', color: '#fbbf24' },
+                     { id: 'fail', label: 'Fail', icon: '👎', color: '#94a3b8' }
+                   ].map(sfx => (
+                     <motion.button
+                       key={sfx.id}
+                       whileTap={{ scale: 0.95 }}
+                       onClick={() => sendSFX(sfx.id)}
+                       style={{ 
+                         background: 'rgba(255,255,255,0.03)', 
+                         border: '1px solid rgba(255,255,255,0.05)', 
+                         borderRadius: '24px', 
+                         padding: '32px 20px',
+                         display: 'flex',
+                         flexDirection: 'column',
+                         alignItems: 'center',
+                         gap: '12px',
+                         cursor: 'pointer'
+                       }}
+                     >
+                        <span style={{ fontSize: '32px' }}>{sfx.icon}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'white' }}>{sfx.label}</span>
+                     </motion.button>
+                   ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -136,6 +180,26 @@ function RemoteView() {
                    {queue.length}
                  </span>
                )}
+            </button>
+            <button 
+              onClick={() => setActiveTab('sfx')}
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                gap: '4px', 
+                padding: '12px', 
+                borderRadius: '12px',
+                border: 'none',
+                background: activeTab === 'sfx' ? 'var(--accent-blue)' : 'transparent',
+                color: activeTab === 'sfx' ? 'white' : 'rgba(255,255,255,0.2)',
+                transition: 'all 0.2s',
+                cursor: 'pointer'
+              }}
+            >
+               <Speaker size={20} />
+               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>SFX</span>
             </button>
          </div>
       </nav>

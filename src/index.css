@@ -186,7 +186,20 @@ body {
   object-fit: cover;
 }
 
-/* Scrollbar */
+/* Particles Effect for Idle Stage */
+.particles-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: particlesMove 20s linear infinite;
+}
+
+@keyframes particlesMove {
+  from { background-position: 0 0; }
+  to { background-position: 500px 1000px; }
+}
+
 ::-webkit-scrollbar {
   width: 5px;
 }

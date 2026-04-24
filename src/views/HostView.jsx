@@ -173,11 +173,13 @@ function HostView() {
 
            <div style={{ padding: '24px', borderTop: '1px solid var(--glass-border)' }}>
               <div className="glass-panel" style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                 <div>
-                    <h4 style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase' }}>Phone Remote</h4>
-                    <p style={{ fontSize: '9px', color: 'var(--accent-blue)', fontWeight: 800, marginTop: '4px' }}>vocalize.pro/j/{sessionId.toLowerCase()}</p>
+                 <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                    <h4 style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', opacity: 0.5, letterSpacing: '1px' }}>Phone Remote</h4>
+                    <p style={{ fontSize: '11px', color: 'var(--accent-blue)', fontWeight: 800, marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                       {window.location.host}/remote?id={sessionId}
+                    </p>
                  </div>
-                 <div style={{ background: '#fff', padding: '4px', borderRadius: '6px' }}>
+                 <div style={{ background: '#fff', padding: '4px', borderRadius: '6px', marginLeft: '12px' }}>
                     <QRCodeSVG value={remoteUrl} size={40} />
                  </div>
               </div>

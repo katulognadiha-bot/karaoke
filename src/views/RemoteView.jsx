@@ -65,40 +65,68 @@ function RemoteView() {
   }
 
   return (
-    <div style={{ height: '100vh', background: '#0c0c0c', color: 'white', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'Outfit', sans-serif" }}>
+    <div style={{ 
+      height: '100vh', 
+      background: 'linear-gradient(to bottom, #0f0f12, #000000)', 
+      color: 'white', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'hidden', 
+      fontFamily: "'Outfit', sans-serif",
+      paddingBottom: 'env(safe-area-inset-bottom)'
+    }}>
       
       {/* Mobile Header */}
-      <header style={{ padding: '20px', background: '#111', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ backgroundColor: 'var(--accent-blue)', padding: '6px', borderRadius: '8px' }}>
-            <Mic2 size={16} color="white" />
+      <header style={{ 
+        padding: '16px 20px', 
+        background: 'rgba(17,17,17,0.8)', 
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        zIndex: 100 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="glow-blue" style={{ backgroundColor: 'var(--accent-blue)', padding: '5px', borderRadius: '8px' }}>
+            <Mic2 size={14} color="white" />
           </div>
-          <span style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '-0.5px' }}>
-            VOCAL<span style={{ color: 'var(--accent-blue)' }}>IZE</span> <span style={{ opacity: 0.2, fontWeight: 400, marginLeft: '4px' }}>REMOTE</span>
+          <span style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase' }}>
+            VOCALIZE <span style={{ color: 'var(--accent-blue)', opacity: 0.6 }}>RC</span>
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(33,150,243,0.1)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(33,150,243,0.2)' }}>
-          <Wifi size={12} color="var(--accent-blue)" />
-          <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--accent-blue)', letterSpacing: '1px' }}>{sessionId}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(33,150,243,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(33,150,243,0.2)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-blue)' }} className="pulse" />
+          <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--accent-blue)' }}>{sessionId}</span>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+      <main style={{ flex: 1, overflowY: 'auto', padding: '16px', position: 'relative' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 0.2 }}
             style={{ height: '100%' }}
           >
-            {activeTab === 'search' && <Search onSelect={handleSelectSong} />}
-            {activeTab === 'reserved' && <Queue items={queue} onRemove={handleRemove} onSkip={() => {}} />}
+            {activeTab === 'search' && (
+              <div style={{ paddingBottom: '20px' }}>
+                 <Search onSelect={handleSelectSong} />
+              </div>
+            )}
+            {activeTab === 'reserved' && (
+              <div style={{ paddingBottom: '20px' }}>
+                 <h3 style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.4, marginBottom: '16px', paddingLeft: '4px' }}>Up Next</h3>
+                 <Queue items={queue} onRemove={handleRemove} onSkip={() => {}} />
+              </div>
+            )}
             {activeTab === 'sfx' && (
-              <div style={{ padding: '10px' }}>
-                <h3 style={{ fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.3, marginBottom: '24px' }}>Party Sound Board</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ padding: '8px' }}>
+                <h3 style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.4, marginBottom: '24px' }}>Sound Board</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                    {[
                      { id: 'applause', label: 'Applause', icon: '👏', color: '#4ade80' },
                      { id: 'airhorn', label: 'Airhorn', icon: '📢', color: '#fb7185' },
@@ -107,22 +135,22 @@ function RemoteView() {
                    ].map(sfx => (
                      <motion.button
                        key={sfx.id}
-                       whileTap={{ scale: 0.95 }}
+                       whileTap={{ scale: 0.92 }}
                        onClick={() => sendSFX(sfx.id)}
+                       className="glass-panel"
                        style={{ 
-                         background: 'rgba(255,255,255,0.03)', 
-                         border: '1px solid rgba(255,255,255,0.05)', 
-                         borderRadius: '24px', 
-                         padding: '32px 20px',
+                         padding: '24px 16px',
                          display: 'flex',
                          flexDirection: 'column',
                          alignItems: 'center',
                          gap: '12px',
-                         cursor: 'pointer'
+                         cursor: 'pointer',
+                         background: 'rgba(255,255,255,0.02)',
+                         borderColor: 'rgba(255,255,255,0.05)'
                        }}
                      >
-                        <span style={{ fontSize: '32px' }}>{sfx.icon}</span>
-                        <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'white' }}>{sfx.label}</span>
+                        <span style={{ fontSize: '28px', filter: `drop-shadow(0 0 10px ${sfx.color}44)` }}>{sfx.icon}</span>
+                        <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,0.6)' }}>{sfx.label}</span>
                      </motion.button>
                    ))}
                 </div>
@@ -132,9 +160,21 @@ function RemoteView() {
         </AnimatePresence>
       </main>
 
-      {/* Bottom Navigation */}
-      <nav style={{ padding: '16px 20px 32px', background: 'rgba(17,17,17,0.8)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '16px', gap: '4px' }}>
+      {/* Bottom Navigation (Floating App Style) */}
+      <nav style={{ 
+        padding: '12px 20px 24px', 
+        background: 'rgba(17,17,17,0.95)', 
+        backdropFilter: 'blur(30px)', 
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        zIndex: 100
+      }}>
+         <div style={{ 
+           display: 'flex', 
+           background: 'rgba(255,255,255,0.03)', 
+           padding: '6px', 
+           borderRadius: '20px', 
+           gap: '6px' 
+         }}>
             <button 
               onClick={() => setActiveTab('search')}
               style={{ 
@@ -143,17 +183,17 @@ function RemoteView() {
                 flexDirection: 'column', 
                 alignItems: 'center', 
                 gap: '4px', 
-                padding: '12px', 
-                borderRadius: '12px',
+                padding: '10px', 
+                borderRadius: '16px',
                 border: 'none',
                 background: activeTab === 'search' ? 'var(--accent-blue)' : 'transparent',
-                color: activeTab === 'search' ? 'white' : 'rgba(255,255,255,0.2)',
-                transition: 'all 0.2s',
+                color: activeTab === 'search' ? 'white' : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer'
               }}
             >
-               <SearchIcon size={20} />
-               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>Browse</span>
+               <SearchIcon size={20} strokeWidth={activeTab === 'search' ? 3 : 2} />
+               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase' }}>Search</span>
             </button>
             <button 
               onClick={() => setActiveTab('reserved')}
@@ -163,20 +203,20 @@ function RemoteView() {
                 flexDirection: 'column', 
                 alignItems: 'center', 
                 gap: '4px', 
-                padding: '12px', 
-                borderRadius: '12px',
+                padding: '10px', 
+                borderRadius: '16px',
                 border: 'none',
                 background: activeTab === 'reserved' ? 'var(--accent-blue)' : 'transparent',
-                color: activeTab === 'reserved' ? 'white' : 'rgba(255,255,255,0.2)',
-                transition: 'all 0.2s',
+                color: activeTab === 'reserved' ? 'white' : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer',
                 position: 'relative'
               }}
             >
-               <ListVideo size={20} />
-               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>Queue</span>
+               <ListVideo size={20} strokeWidth={activeTab === 'reserved' ? 3 : 2} />
+               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase' }}>Queue</span>
                {queue.length > 0 && (
-                 <span style={{ position: 'absolute', top: '8px', right: '30%', width: '16px', height: '16px', background: '#ef4444', borderRadius: '50%', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, border: '2px solid #111' }}>
+                 <span style={{ position: 'absolute', top: '6px', right: '25%', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, border: '2px solid #111' }}>
                    {queue.length}
                  </span>
                )}
@@ -189,17 +229,17 @@ function RemoteView() {
                 flexDirection: 'column', 
                 alignItems: 'center', 
                 gap: '4px', 
-                padding: '12px', 
-                borderRadius: '12px',
+                padding: '10px', 
+                borderRadius: '16px',
                 border: 'none',
                 background: activeTab === 'sfx' ? 'var(--accent-blue)' : 'transparent',
-                color: activeTab === 'sfx' ? 'white' : 'rgba(255,255,255,0.2)',
-                transition: 'all 0.2s',
+                color: activeTab === 'sfx' ? 'white' : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer'
               }}
             >
-               <Speaker size={20} />
-               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>SFX</span>
+               <Speaker size={20} strokeWidth={activeTab === 'sfx' ? 3 : 2} />
+               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase' }}>Party</span>
             </button>
          </div>
       </nav>

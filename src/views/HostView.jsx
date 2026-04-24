@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart, Play, Pause, SkipForward, Maximize } from 'lucide-react';
+import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart, Play, Pause, SkipForward, Maximize, MicOff, Trophy, Star } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import Player from '../components/Player';
 import Search from '../components/Search';
@@ -12,14 +12,28 @@ function HostView() {
   const [currentVideo, setCurrentVideo] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [queue, setQueue] = useState([]);
-  const stageRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
   const [sessionId] = useState(() => {
     const saved = localStorage.getItem('vocalize_session_id') || Math.random().toString(36).substring(2, 6).toUpperCase();
     localStorage.setItem('vocalize_session_id', saved);
     return saved;
   });
 
-  const [notifications, setNotifications] = useState([]);
+  // Scoring & Audio States
+  const [isScoringEnabled, setIsScoringEnabled] = useState(true);
+  const [micIntensity, setMicIntensity] = useState(0);
+  const [currentScore, setCurrentScore] = useState(0);
+  const [finalScore, setFinalScore] = useState(null);
+  const [showFinalScore, setShowFinalScore] = useState(false);
+  const [isMicActive, setIsMicActive] = useState(false);
+  
+  const stageRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const micStreamRef = useRef(null);
+  const animationRef = useRef(null);
+  const pointsRef = useRef(0);
+  const frameCountRef = useRef(0);
 
   useEffect(() => {
     if (!supabase) return;
@@ -89,6 +103,21 @@ function HostView() {
   };
 
   const handleSongEnded = () => {
+    if (isScoringEnabled && currentScore > 0) {
+      setFinalScore(currentScore);
+      setShowFinalScore(true);
+      
+      // Show score for 6 seconds then skip
+      setTimeout(() => {
+        setShowFinalScore(false);
+        proceedToNext();
+      }, 6000);
+    } else {
+      proceedToNext();
+    }
+  };
+
+  const proceedToNext = () => {
     if (queue.length > 0) {
       const n = queue[0];
       const nq = queue.slice(1);
@@ -99,6 +128,7 @@ function HostView() {
       setCurrentVideo(null);
       updateDB([], null);
     }
+    setCurrentScore(0);
   };
 
   const handleRemove = (id) => {
@@ -107,7 +137,89 @@ function HostView() {
     updateDB(nq);
   };
 
-  const remoteUrl = `${window.location.origin}/remote?id=${sessionId}`;
+  // Initialize Audio Analyzer
+  useEffect(() => {
+    if (!isScoringEnabled) return;
+
+    const startMic = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStreamRef.current = stream;
+        
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContextRef.current = audioContext;
+        
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyserRef.current = analyser;
+        
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        
+        setIsMicActive(true);
+      } catch (err) {
+        console.error("Mic access denied:", err);
+        setIsMicActive(false);
+      }
+    };
+
+    startMic();
+
+    return () => {
+      if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
+      if (audioContextRef.current) audioContextRef.current.close();
+      cancelAnimationFrame(animationRef.current);
+    };
+  }, [isScoringEnabled]);
+
+  // Scoring Logic Loop
+  useEffect(() => {
+    if (isPlaying && currentVideo && isMicActive && isScoringEnabled) {
+      // Reset points for new song
+      pointsRef.current = 0;
+      frameCountRef.current = 0;
+      
+      const updateScore = () => {
+        if (!analyserRef.current) return;
+        
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteTimeDomainData(dataArray);
+        
+        // Calculate RMS (Volume Intensity)
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        
+        // Update Intensity for UI
+        setMicIntensity(rms * 100);
+        
+        // Scoring: If loud enough, add points
+        if (rms > 0.05) {
+          pointsRef.current += 1;
+        }
+        frameCountRef.current += 1;
+        
+        // Convert to 0-100 scale (roughly)
+        const possiblePoints = frameCountRef.current;
+        const rawScore = (pointsRef.current / possiblePoints) * 100;
+        // Boost score a bit to make it "fun" (minimum 60 if you try)
+        const mappedScore = Math.min(100, Math.max(0, rawScore * 2 + 30));
+        setCurrentScore(Math.floor(mappedScore));
+        
+        animationRef.current = requestAnimationFrame(updateScore);
+      };
+      
+      updateScore();
+    } else {
+      cancelAnimationFrame(animationRef.current);
+      setMicIntensity(0);
+    }
+    
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [isPlaying, currentVideo, isMicActive, isScoringEnabled]);
 
   return (
     <div className="ktv-app">
@@ -126,6 +238,25 @@ function HostView() {
           <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '6px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '10px', fontWeight: 900, opacity: 0.3, letterSpacing: '1px' }}>ROOM ID</span>
             <span style={{ fontSize: '16px', fontWeight: 900, letterSpacing: '2px', color: 'var(--accent-blue)' }}>{sessionId}</span>
+          </div>
+
+          <div 
+            style={{ 
+              background: 'rgba(255,255,255,0.03)', 
+              border: '1px solid var(--glass-border)', 
+              padding: '6px 16px', 
+              borderRadius: '8px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px',
+              borderColor: isMicActive ? 'var(--accent-blue)' : 'var(--glass-border)',
+              opacity: isScoringEnabled ? 1 : 0.5
+            }}
+          >
+            {isMicActive ? <Mic2 size={14} color="var(--accent-blue)" className="pulse" /> : <MicOff size={14} opacity={0.5} />}
+            <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
+               {isMicActive ? 'Mic Active' : 'Mic Off'}
+            </span>
           </div>
 
           <div style={{ display: 'flex', gap: '4px' }}>
@@ -206,6 +337,27 @@ function HostView() {
                       <SkipForward size={18} fill="white" />
                    </button>
                 </div>
+
+                {/* Live Scoring Visuals */}
+                {isScoringEnabled && isPlaying && (
+                  <>
+                    {/* Mic Meter (Vertical) */}
+                    <div style={{ position: 'absolute', bottom: '80px', left: '24px', width: '6px', height: '100px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', zIndex: 10 }}>
+                       <motion.div 
+                         animate={{ height: `${Math.min(100, micIntensity * 3)}%` }}
+                         style={{ position: 'absolute', bottom: 0, width: '100%', background: 'var(--accent-blue)', boxShadow: '0 0 10px var(--accent-blue)' }}
+                       />
+                    </div>
+                    
+                    {/* Live Score Badge */}
+                    <div style={{ position: 'absolute', top: '20px', right: '110px', zIndex: 10 }}>
+                       <div className="glass-panel" style={{ padding: '6px 16px', background: 'rgba(0,0,0,0.5)', borderColor: 'var(--accent-blue)', color: 'white', borderRadius: '30px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Star size={12} fill="var(--accent-blue)" color="var(--accent-blue)" />
+                          <span style={{ fontSize: '14px', fontWeight: 900 }}>{currentScore}</span>
+                       </div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               /* Idle Video Stage Placeholders */
@@ -220,6 +372,34 @@ function HostView() {
             <div style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.4)', padding: '6px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', zIndex: 10 }}>
                LIVE 1080P
             </div>
+
+            {/* Final Score Reveal Modal */}
+            <AnimatePresence>
+              {showFinalScore && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}
+                >
+                  <motion.div 
+                    initial={{ scale: 0.5, y: 50 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="glass-panel glow-blue"
+                    style={{ padding: '60px', borderRadius: '32px', textAlign: 'center', background: 'linear-gradient(135deg, rgba(33,150,243,0.1), rgba(0,0,0,0.5))', border: '1px solid var(--accent-blue)', maxWidth: '400px', width: '90%' }}
+                  >
+                    <Trophy size={80} color="var(--accent-blue)" style={{ margin: '0 auto 24px', filter: 'drop-shadow(0 0 20px rgba(33,150,243,0.5))' }} />
+                    <h3 style={{ fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '4px', color: 'var(--accent-blue)', marginBottom: '12px' }}>Final Performance Score</h3>
+                    <div style={{ fontSize: '100px', fontWeight: 900, color: 'white', lineHeight: 1, marginBottom: '16px', letterSpacing: '-4px' }}>
+                       {finalScore}
+                    </div>
+                    <div className="glass-panel" style={{ padding: '12px 24px', display: 'inline-block', borderRadius: '40px', background: 'var(--accent-blue)', color: 'white', fontWeight: 900, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                       {finalScore >= 95 ? 'Legendary Singer!' : finalScore >= 85 ? 'Certified Pro' : finalScore >= 70 ? 'Great Effort!' : 'Keep Practicing'}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Notifications Overlay */}
             <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 100 }}>

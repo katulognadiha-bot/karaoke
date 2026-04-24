@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic2, Settings, QrCode, Music, Search as SearchIcon, ListVideo, LayoutGrid, Radio, Heart, Play, Pause, SkipForward, Maximize } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -12,6 +12,7 @@ function HostView() {
   const [currentVideo, setCurrentVideo] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [queue, setQueue] = useState([]);
+  const stageRef = useRef(null);
   const [sessionId] = useState(() => {
     const saved = localStorage.getItem('vocalize_session_id') || Math.random().toString(36).substring(2, 6).toUpperCase();
     localStorage.setItem('vocalize_session_id', saved);
@@ -146,9 +147,16 @@ function HostView() {
         <section className="ktv-stage" style={{ padding: '24px', gap: '24px' }}>
           {/* Main Video Area */}
           <div 
+            ref={stageRef}
             style={{ flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', background: '#000', border: '1px solid var(--glass-border)' }}
-            onMouseEnter={() => document.getElementById('player-controls').style.opacity = '1'}
-            onMouseLeave={() => document.getElementById('player-controls').style.opacity = '0'}
+            onMouseEnter={() => {
+              const el = document.getElementById('player-controls');
+              if (el) el.style.opacity = '1';
+            }}
+            onMouseLeave={() => {
+              const el = document.getElementById('player-controls');
+              if (el) el.style.opacity = '0';
+            }}
           >
             {currentVideo ? (
               <div style={{ width: '100%', height: '100%' }}>
@@ -176,7 +184,9 @@ function HostView() {
                   }}
                 >
                    <button 
-                     onClick={() => document.documentElement.requestFullscreen()}
+                     onClick={() => {
+                       if (stageRef.current) stageRef.current.requestFullscreen();
+                     }}
                      style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                      title="Fullscreen"
                    >

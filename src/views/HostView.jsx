@@ -57,11 +57,12 @@ function HostView() {
 
   // Sound Effects Map
   const sounds = {
-    applause: 'https://assets.mixkit.co/active_storage/sfx/2836/2836-preview.mp3',
-    airhorn: 'https://assets.mixkit.co/active_storage/sfx/2744/2744-preview.mp3',
-    cheer: 'https://assets.mixkit.co/active_storage/sfx/2841/2841-preview.mp3',
-    fail: 'https://assets.mixkit.co/active_storage/sfx/2843/2843-preview.mp3'
+    applause: 'https://assets.mixkit.co/active_storage/sfx/2840/2840-preview.mp3', // Loud Stadium Applause
+    airhorn: 'https://assets.mixkit.co/active_storage/sfx/2743/2743-preview.mp3',  // Pro DJ Airhorn
+    cheer: 'https://assets.mixkit.co/active_storage/sfx/2839/2839-preview.mp3',    // Large Crowd Cheer
+    fail: 'https://assets.mixkit.co/active_storage/sfx/2842/2842-preview.mp3'     // Deep Crowd Booing
   };
+
 
   const playSound = (type) => {
     const audio = new Audio(sounds[type]);

@@ -6,6 +6,7 @@ import Player from '../components/Player';
 import Search from '../components/Search';
 import Queue from '../components/Queue';
 import { supabase } from '../lib/supabase';
+import { recordSongPlay } from '../lib/stats';
 
 function HostView() {
   const [activeTab, setActiveTab] = useState('search');
@@ -123,6 +124,7 @@ function HostView() {
   };
 
   const handleSelectSong = (song, action) => {
+    recordSongPlay(song);
     if (action === 'play') {
       setCurrentVideo(song);
       updateDB(queue, song);
@@ -139,6 +141,7 @@ function HostView() {
       }, 3000);
     }
   };
+
 
   const handleSongEnded = () => {
     if (isScoringEnabled && currentScore > 0) {

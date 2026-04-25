@@ -5,6 +5,7 @@ import { Mic2, Search as SearchIcon, ListVideo, Music, ChevronLeft, Wifi, Termin
 import Search from '../components/Search';
 import Queue from '../components/Queue';
 import { supabase } from '../lib/supabase';
+import { recordSongPlay } from '../lib/stats';
 
 function RemoteView() {
   const [searchParams] = useSearchParams();
@@ -46,7 +47,9 @@ function RemoteView() {
     const nq = [...queue, { ...song, queueId: Date.now() }];
     setQueue(nq);
     updateDB(nq);
+    recordSongPlay(song);
   };
+
 
   const handleRemove = (qid) => {
     const nq = queue.filter(item => item.queueId !== qid);

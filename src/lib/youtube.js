@@ -1,9 +1,13 @@
 export const searchYoutube = async (query) => {
-  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+  // Check for custom API key in localStorage first
+  const customKey = localStorage.getItem('vocalize_custom_api_key');
+  const apiKey = customKey || import.meta.env.VITE_YOUTUBE_API_KEY;
+
   if (!apiKey) {
     console.error("YouTube API Key missing!");
     return [];
   }
+
 
   try {
     const response = await fetch(

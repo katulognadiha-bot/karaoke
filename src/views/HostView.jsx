@@ -5,12 +5,15 @@ import { QRCodeSVG } from 'qrcode.react';
 import Player from '../components/Player';
 import Search from '../components/Search';
 import Queue from '../components/Queue';
+import ApiSettings from '../components/ApiSettings';
 import { supabase } from '../lib/supabase';
 import { recordSongPlay } from '../lib/stats';
 
 function HostView() {
   const [activeTab, setActiveTab] = useState('search');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [queue, setQueue] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -300,7 +303,7 @@ function HostView() {
 
           <div style={{ display: 'flex', gap: '4px' }}>
             <button className="btn-icon"><QrCode size={18} /></button>
-            <button className="btn-icon"><Settings size={18} /></button>
+            <button className="btn-icon" onClick={() => setIsSettingsOpen(true)}><Settings size={18} /></button>
             <button 
               className="btn-icon" 
               onClick={() => document.documentElement.requestFullscreen()}
@@ -310,6 +313,7 @@ function HostView() {
           </div>
         </div>
       </header>
+
 
       {/* Workspace */}
       <main className="ktv-main">
@@ -557,8 +561,10 @@ function HostView() {
            </div>
         </aside>
       </main>
+      <ApiSettings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }
+
 
 export default HostView;

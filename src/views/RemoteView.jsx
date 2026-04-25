@@ -4,14 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic2, Search as SearchIcon, ListVideo, Music, ChevronLeft, Wifi, Terminal, LayoutGrid, Speaker } from 'lucide-react';
 import Search from '../components/Search';
 import Queue from '../components/Queue';
+import ApiSettings from '../components/ApiSettings';
 import { supabase } from '../lib/supabase';
 import { recordSongPlay } from '../lib/stats';
+import { Settings } from 'lucide-react';
 
 function RemoteView() {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('id');
   const [activeTab, setActiveTab] = useState('search');
-
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [queue, setQueue] = useState([]);
   const [error, setError] = useState(null);
 
@@ -104,9 +106,17 @@ function RemoteView() {
             VOCALIZE <span style={{ color: 'var(--accent-blue)', opacity: 0.6 }}>RC</span>
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(33,150,243,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(33,150,243,0.2)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-blue)' }} className="pulse" />
-          <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--accent-blue)' }}>{sessionId}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(33,150,243,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(33,150,243,0.2)' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-blue)' }} className="pulse" />
+            <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--accent-blue)' }}>{sessionId}</span>
+          </div>
+          <button 
+            onClick={() => setIsSettingsOpen(true)}
+            style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '6px', borderRadius: '8px', display: 'flex' }}
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
 
@@ -199,6 +209,7 @@ function RemoteView() {
             </button>
          </div>
       </nav>
+      <ApiSettings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

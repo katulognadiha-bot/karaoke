@@ -13,19 +13,23 @@ function RemoteView() {
   const [activeTab, setActiveTab] = useState('search');
   const [queue, setQueue] = useState([]);
   const [error, setError] = useState(null);
+  const [sfxChannel, setSfxChannel] = useState(null);
+
+
+  useEffect(() => {
+    if (!supabase || !sessionId) return;
+    const channel = supabase.channel(`queue:${sessionId}`).subscribe();
+    setSfxChannel(channel);
+    return () => supabase.removeChannel(channel);
+  }, [sessionId]);
 
   // SFX Broadcast Channel
   const sendSFX = async (type) => {
-    if (!supabase || !sessionId) return;
-    const channel = supabase.channel(`queue:${sessionId}`);
-    await channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.send({
-          type: 'broadcast',
-          event: 'sound_effect',
-          payload: { type },
-        });
-      }
+    if (!sfxChannel) return;
+    await sfxChannel.send({
+      type: 'broadcast',
+      event: 'sound_effect',
+      payload: { type },
     });
   };
 
@@ -37,6 +41,7 @@ function RemoteView() {
       ).subscribe();
     return () => supabase.removeChannel(channel);
   }, [sessionId]);
+
 
   const updateDB = async (nq) => {
     if (!supabase) return;

@@ -67,10 +67,17 @@ function HostView() {
     const audio = new Audio(sounds[type]);
     audio.volume = 0.5;
     audio.play().catch(e => console.log("Sound blocked by browser:", e));
+    
+    // Stop after 3 seconds
+    setTimeout(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    }, 3000);
   };
 
+
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || !sessionId) return;
 
     // Initialize session in DB
     const initSession = async () => {
@@ -91,37 +98,56 @@ function HostView() {
     };
 
     initSession();
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!supabase || !sessionId) return;
 
     const channel = supabase.channel(`queue:${sessionId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queues', filter: `session_id=eq.${sessionId}` }, 
         payload => {
           const newQueue = payload.new.items || [];
-          // If queue increased, show notification
-          if (newQueue.length > queue.length) {
-            const addedSong = newQueue[newQueue.length - 1];
-            const id = Date.now();
-            setNotifications(prev => [...prev, { id, title: addedSong.title }]);
-            setTimeout(() => {
-              setNotifications(prev => prev.filter(n => n.id !== id));
-            }, 3000);
-          }
           setQueue(newQueue);
           if (payload.new.current_video && (!currentVideo || payload.new.current_video.id !== currentVideo.id)) {
             setCurrentVideo(payload.new.current_video);
           }
       })
       .on('broadcast', { event: 'sound_effect' }, (payload) => {
+        console.log("SFX received:", payload.payload.type);
         playSound(payload.payload.type);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Channel status:", status);
+      });
       
     return () => supabase.removeChannel(channel);
-  }, [sessionId, queue.length]);
+  }, [sessionId]); // Only depend on sessionId
+
+
+  // Handle notifications when queue changes
+  useEffect(() => {
+    if (queue.length > 0) {
+      const lastSong = queue[queue.length - 1];
+      // Only notify if it's a new song (using a ref to track processed IDs would be better but this works for now)
+      // Actually, we can check if the last added song's queueId is recent
+      if (lastSong.queueId > Date.now() - 5000) {
+        const id = lastSong.queueId;
+        setNotifications(prev => {
+          if (prev.find(n => n.id === id)) return prev;
+          return [...prev, { id, title: lastSong.title }];
+        });
+        setTimeout(() => {
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        }, 3000);
+      }
+    }
+  }, [queue.length]);
 
   const updateDB = async (nq, current = currentVideo) => {
     if (!supabase) return;
     await supabase.from('queues').update({ items: nq, current_video: current }).eq('session_id', sessionId);
   };
+
 
   const handleSelectSong = (song, action) => {
     recordSongPlay(song);

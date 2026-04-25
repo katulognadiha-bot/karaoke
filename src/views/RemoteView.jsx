@@ -11,56 +11,57 @@ function RemoteView() {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('id');
   const [activeTab, setActiveTab] = useState('search');
+
   const [queue, setQueue] = useState([]);
   const [error, setError] = useState(null);
-  const [sfxChannel, setSfxChannel] = useState(null);
-
 
   useEffect(() => {
     if (!supabase || !sessionId) return;
-    const channel = supabase.channel(`queue:${sessionId}`).subscribe();
-    setSfxChannel(channel);
+    
+    // Fetch initial queue
+    const fetchQueue = async () => {
+      const { data } = await supabase
+        .from('queue_items')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('status', 'queued')
+        .order('created_at', { ascending: true });
+      
+      setQueue(data?.map(item => ({ ...item.song_data, dbId: item.id })) || []);
+    };
+    fetchQueue();
+
+    // Subscribe to queue_items changes
+    const channel = supabase.channel(`queue_items:${sessionId}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'queue_items', 
+        filter: `session_id=eq.${sessionId}` 
+      }, () => {
+        fetchQueue(); // Refresh list on any change
+      }).subscribe();
+      
     return () => supabase.removeChannel(channel);
   }, [sessionId]);
 
-  // SFX Broadcast Channel
-  const sendSFX = async (type) => {
-    if (!sfxChannel) return;
-    await sfxChannel.send({
-      type: 'broadcast',
-      event: 'sound_effect',
-      payload: { type },
-    });
-  };
 
-  useEffect(() => {
-    if (!supabase || !sessionId) return;
-    const channel = supabase.channel(`remote:${sessionId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queues', filter: `session_id=eq.${sessionId}` }, 
-        payload => setQueue(payload.new.items || [])
-      ).subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [sessionId]);
-
-
-  const updateDB = async (nq) => {
-    if (!supabase) return;
-    await supabase.from('queues').update({ items: nq }).eq('session_id', sessionId);
-  };
-
-  const handleSelectSong = (song, action) => {
-    const nq = [...queue, { ...song, queueId: Date.now() }];
-    setQueue(nq);
-    updateDB(nq);
+  const handleSelectSong = async (song, action) => {
+    // Atomic insert into queue_items - multiple users can do this simultaneously
+    await supabase.from('queue_items').insert([{
+      session_id: sessionId,
+      song_data: song,
+      status: 'queued'
+    }]);
+    
     recordSongPlay(song);
   };
 
 
-  const handleRemove = (qid) => {
-    const nq = queue.filter(item => item.queueId !== qid);
-    setQueue(nq);
-    updateDB(nq);
+  const handleRemove = async (dbId) => {
+    await supabase.from('queue_items').delete().eq('id', dbId);
   };
+
 
   if (!sessionId) {
     return (
@@ -131,39 +132,6 @@ function RemoteView() {
                  <Queue items={queue} onRemove={handleRemove} onSkip={() => {}} />
               </div>
             )}
-            {activeTab === 'sfx' && (
-              <div style={{ padding: '8px' }}>
-                <h3 style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.4, marginBottom: '24px' }}>Sound Board</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                   {[
-                     { id: 'applause', label: 'Applause', icon: '👏', color: '#4ade80' },
-                     { id: 'airhorn', label: 'Airhorn', icon: '📢', color: '#fb7185' },
-                     { id: 'cheer', label: 'Cheers', icon: '🎉', color: '#fbbf24' },
-                     { id: 'fail', label: 'Fail', icon: '👎', color: '#94a3b8' }
-                   ].map(sfx => (
-                     <motion.button
-                       key={sfx.id}
-                       whileTap={{ scale: 0.92 }}
-                       onClick={() => sendSFX(sfx.id)}
-                       className="glass-panel"
-                       style={{ 
-                         padding: '24px 16px',
-                         display: 'flex',
-                         flexDirection: 'column',
-                         alignItems: 'center',
-                         gap: '12px',
-                         cursor: 'pointer',
-                         background: 'rgba(255,255,255,0.02)',
-                         borderColor: 'rgba(255,255,255,0.05)'
-                       }}
-                     >
-                        <span style={{ fontSize: '28px', filter: `drop-shadow(0 0 10px ${sfx.color}44)` }}>{sfx.icon}</span>
-                        <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,0.6)' }}>{sfx.label}</span>
-                     </motion.button>
-                   ))}
-                </div>
-              </div>
-            )}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -229,26 +197,6 @@ function RemoteView() {
                  </span>
                )}
             </button>
-            <button 
-              onClick={() => setActiveTab('sfx')}
-              style={{ 
-                flex: 1, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                gap: '4px', 
-                padding: '10px', 
-                borderRadius: '16px',
-                border: 'none',
-                background: activeTab === 'sfx' ? 'var(--accent-blue)' : 'transparent',
-                color: activeTab === 'sfx' ? 'white' : 'rgba(255,255,255,0.3)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                cursor: 'pointer'
-              }}
-            >
-               <Speaker size={20} strokeWidth={activeTab === 'sfx' ? 3 : 2} />
-               <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase' }}>Party</span>
-            </button>
          </div>
       </nav>
     </div>
@@ -256,3 +204,4 @@ function RemoteView() {
 }
 
 export default RemoteView;
+

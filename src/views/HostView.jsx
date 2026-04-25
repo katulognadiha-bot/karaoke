@@ -55,32 +55,22 @@ function HostView() {
   const pointsRef = useRef(0);
   const frameCountRef = useRef(0);
 
-  // Sound Effects Map
-  const sounds = {
-    applause: 'https://assets.mixkit.co/active_storage/sfx/2840/2840-preview.mp3', // Loud Stadium Applause
-    airhorn: 'https://assets.mixkit.co/active_storage/sfx/2743/2743-preview.mp3',  // Pro DJ Airhorn
-    cheer: 'https://assets.mixkit.co/active_storage/sfx/2839/2839-preview.mp3',    // Large Crowd Cheer
-    fail: 'https://assets.mixkit.co/active_storage/sfx/2842/2842-preview.mp3'     // Deep Crowd Booing
-  };
-
-
-  const playSound = (type) => {
-    const audio = new Audio(sounds[type]);
-    audio.volume = 0.5;
-    audio.play().catch(e => console.log("Sound blocked by browser:", e));
-    
-    // Stop after 3 seconds
-    setTimeout(() => {
-      audio.pause();
-      audio.currentTime = 0;
-    }, 3000);
-  };
-
-
   useEffect(() => {
     if (!supabase || !sessionId) return;
 
-    // Initialize session in DB
+    // Fetch initial queue from dedicated table
+    const fetchQueue = async () => {
+      const { data } = await supabase
+        .from('queue_items')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('status', 'queued')
+        .order('created_at', { ascending: true });
+      
+      setQueue(data?.map(item => ({ ...item.song_data, dbId: item.id })) || []);
+    };
+
+    // Initialize session and fetch initial states
     const initSession = async () => {
       const { data, error } = await supabase
         .from('queues')
@@ -93,79 +83,77 @@ function HostView() {
           { session_id: sessionId, items: [], current_video: null }
         ]);
       } else {
-        setQueue(data.items || []);
         setCurrentVideo(data.current_video);
       }
+      fetchQueue();
     };
 
     initSession();
-  }, [sessionId]);
 
-  useEffect(() => {
-    if (!supabase || !sessionId) return;
+    // Subscribe to queue_items changes
+    const qChannel = supabase.channel(`queue_items:${sessionId}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'queue_items', 
+        filter: `session_id=eq.${sessionId}` 
+      }, () => {
+        fetchQueue();
+      }).subscribe();
 
-    const channel = supabase.channel(`queue:${sessionId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queues', filter: `session_id=eq.${sessionId}` }, 
-        payload => {
-          const newQueue = payload.new.items || [];
-          setQueue(newQueue);
-          if (payload.new.current_video && (!currentVideo || payload.new.current_video.id !== currentVideo.id)) {
-            setCurrentVideo(payload.new.current_video);
-          }
-      })
-      .on('broadcast', { event: 'sound_effect' }, (payload) => {
-        console.log("SFX received:", payload.payload.type);
-        playSound(payload.payload.type);
-      })
-      .subscribe((status) => {
-        console.log("Channel status:", status);
-      });
+    // Subscribe to session changes (for current video)
+    const sChannel = supabase.channel(`session:${sessionId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'queues', 
+        filter: `session_id=eq.${sessionId}` 
+      }, payload => {
+        if (payload.new.current_video && (!currentVideo || payload.new.current_video.id !== currentVideo.id)) {
+          setCurrentVideo(payload.new.current_video);
+        }
+      }).subscribe();
       
-    return () => supabase.removeChannel(channel);
-  }, [sessionId]); // Only depend on sessionId
+    return () => {
+      supabase.removeChannel(qChannel);
+      supabase.removeChannel(sChannel);
+    };
+  }, [sessionId]);
 
 
   // Handle notifications when queue changes
   useEffect(() => {
     if (queue.length > 0) {
       const lastSong = queue[queue.length - 1];
-      // Only notify if it's a new song (using a ref to track processed IDs would be better but this works for now)
-      // Actually, we can check if the last added song's queueId is recent
-      if (lastSong.queueId > Date.now() - 5000) {
-        const id = lastSong.queueId;
-        setNotifications(prev => {
-          if (prev.find(n => n.id === id)) return prev;
-          return [...prev, { id, title: lastSong.title }];
-        });
-        setTimeout(() => {
-          setNotifications(prev => prev.filter(n => n.id !== id));
-        }, 3000);
-      }
-    }
-  }, [queue.length]);
-
-  const updateDB = async (nq, current = currentVideo) => {
-    if (!supabase) return;
-    await supabase.from('queues').update({ items: nq, current_video: current }).eq('session_id', sessionId);
-  };
-
-
-  const handleSelectSong = (song, action) => {
-    recordSongPlay(song);
-    if (action === 'play') {
-      setCurrentVideo(song);
-      updateDB(queue, song);
-    } else {
-      const nq = [...queue, { ...song, queueId: Date.now() }];
-      setQueue(nq);
-      updateDB(nq);
-      
-      // Local notification
-      const id = Date.now();
-      setNotifications(prev => [...prev, { id, title: song.title }]);
+      // Check if it's a new song added in the last 5 seconds
+      // Note: We don't have created_at here but we can use dbId as a proxy for 'newness'
+      const id = lastSong.dbId;
+      setNotifications(prev => {
+        if (prev.find(n => n.id === id)) return prev;
+        return [...prev, { id, title: lastSong.title }];
+      });
       setTimeout(() => {
         setNotifications(prev => prev.filter(n => n.id !== id));
       }, 3000);
+    }
+  }, [queue.length]);
+
+  const updateCurrentVideo = async (video) => {
+    if (!supabase) return;
+    await supabase.from('queues').update({ current_video: video }).eq('session_id', sessionId);
+  };
+
+  const handleSelectSong = async (song, action) => {
+    recordSongPlay(song);
+    if (action === 'play') {
+      setCurrentVideo(song);
+      updateCurrentVideo(song);
+    } else {
+      await supabase.from('queue_items').insert([{
+        session_id: sessionId,
+        song_data: song,
+        status: 'queued'
+      }]);
     }
   };
 
@@ -185,26 +173,29 @@ function HostView() {
     }
   };
 
-  const proceedToNext = () => {
+  const proceedToNext = async () => {
     if (queue.length > 0) {
-      const n = queue[0];
-      const nq = queue.slice(1);
-      setCurrentVideo(n);
-      setQueue(nq);
-      updateDB(nq, n);
+      const nextItem = queue[0];
+      const nextSong = { ...nextItem };
+      
+      // 1. Set as current
+      setCurrentVideo(nextSong);
+      updateCurrentVideo(nextSong);
+      
+      // 2. Remove from queue table
+      await supabase.from('queue_items').delete().eq('id', nextItem.dbId);
     } else {
       setCurrentVideo(null);
-      updateDB([], null);
+      updateCurrentVideo(null);
     }
     setCurrentScore(0);
     setIsPlaying(true);
   };
 
-  const handleRemove = (id) => {
-    const nq = queue.filter(item => item.queueId !== id);
-    setQueue(nq);
-    updateDB(nq);
+  const handleRemove = async (dbId) => {
+    await supabase.from('queue_items').delete().eq('id', dbId);
   };
+
 
   const remoteUrl = `${window.location.origin}/remote?id=${sessionId}`;
 

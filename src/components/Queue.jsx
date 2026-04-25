@@ -19,7 +19,7 @@ const Queue = ({ items, onRemove, onSkip }) => {
         ) : (
           items.map((item, index) => (
             <div 
-              key={item.queueId || index} 
+              key={item.dbId || item.queueId || index} 
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -49,7 +49,7 @@ const Queue = ({ items, onRemove, onSkip }) => {
               </div>
 
               <button 
-                onClick={() => onRemove(item.queueId || index)}
+                onClick={() => onRemove(item.dbId || item.queueId || index)}
                 style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.1)', cursor: 'pointer', padding: '8px' }}
                 onMouseOver={(e) => e.currentTarget.style.color = '#ef4444'}
                 onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.1)'}
@@ -57,6 +57,7 @@ const Queue = ({ items, onRemove, onSkip }) => {
                 <Trash2 size={16} />
               </button>
             </div>
+
           ))
         )}
       </div>
